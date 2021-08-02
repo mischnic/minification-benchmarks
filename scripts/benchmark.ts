@@ -4,6 +4,8 @@ import fs from 'fs/promises';
 import minimist from 'minimist';
 import { getSize, getGzipSize } from '../lib/utils/get-size';
 import type { BenchmarkResult } from '../lib/types';
+import { Volume } from 'memfs';
+import { createFsRequire } from 'fs-require';
 
 const getOptions = () => {
 	const argv = minimist(process.argv.slice(2));
@@ -74,10 +76,15 @@ async function unpreserveComment(
 	outputPath,
 }) => {
 	const minifier = getMinifier(minifierName);
-	const code = await unpreserveComment(
-		await getSourceCode(filePath),
-		filePath,
-	);
+
+	require(filePath);
+
+	let code = await getSourceCode(filePath);
+
+	// code = await unpreserveComment(
+	// 	code,
+	// 	filePath,
+	// );
 
 	const start = process.hrtime();
 	const minifiedCode = await minifier({
@@ -86,6 +93,10 @@ async function unpreserveComment(
 	});
 	const hrtime = process.hrtime(start);
 	const success = Boolean(minifiedCode);
+
+	const vol = Volume.fromJSON({ '/index.js': minifiedCode });
+	const fsRequire = createFsRequire(vol);
+	fsRequire('/index');
 
 	console.log(JSON.stringify({
 		minifiedSize: success && getSize(minifiedCode),
